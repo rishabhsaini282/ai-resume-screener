@@ -1,0 +1,44 @@
+graph TD
+    %% User Inputs
+    User([User / Recruiter])
+    JD[Job Description File]
+    Resumes[Resume Files PDF/DOCX]
+    
+    User -->|Uploads| JD
+    User -->|Uploads Batch| Resumes
+
+    %% Processing Pipeline
+    subgraph FastAPI Backend
+        DocParser[Document Parser<br/>PyMuPDF / docx2txt]
+        Extractor[LLM Skill Extractor]
+        EvalAgent[LLM Evaluator Agent]
+        Fallback[TF-IDF Keyword Fallback]
+    end
+
+    %% External APIs
+    subgraph External APIs
+        GitHubAPI[(GitHub API)]
+        LLMAPI[(OpenAI API)]
+    end
+
+    %% Data Flow
+    JD --> DocParser
+    Resumes --> DocParser
+    DocParser -->|Raw Text| Extractor
+    
+    Extractor <-->|Extract Links & Entities| LLMAPI
+    Extractor -->|GitHub Handle| GitHubAPI
+    
+    GitHubAPI -->|Commit/Language JSON| EvalAgent
+    DocParser -->|Raw Text| EvalAgent
+    
+    EvalAgent <-->|Structured JSON Scoring| LLMAPI
+    
+    %% Fallback Logic
+    EvalAgent -.->|On Timeout/Error| Fallback
+    DocParser -.->|Raw Text| Fallback
+    
+    %% Output
+    EvalAgent --> Output[Ranked JSON Array]
+    Fallback --> Output
+    Output --> Client[Frontend Result Cards / CSV]
